@@ -1,4 +1,4 @@
-# netrecon
+# scandy
 
 A home/lab network recon tool: discovers live hosts, scans common ports,
 checks for client (AP) isolation, and summarizes it all into one report.
@@ -21,22 +21,22 @@ On Windows, scapy also needs [Npcap](https://npcap.com/) installed first.
 
 ```bash
 # Host discovery only
-sudo python3 -m netrecon discover 192.168.1.0/24
+sudo python3 -m scandy discover 192.168.1.0/24
 
 # Discover + port scan
-sudo python3 -m netrecon portscan 192.168.1.0/24
+sudo python3 -m scandy portscan 192.168.1.0/24
 
 # Discover + isolation check
-sudo python3 -m netrecon isolation 192.168.1.0/24
+sudo python3 -m scandy isolation 192.168.1.0/24
 
 # Full pipeline: discover + portscan + isolation, with a report
-sudo python3 -m netrecon scan 192.168.1.0/24
+sudo python3 -m scandy scan 192.168.1.0/24
 
 # Save as JSON instead of text
-sudo python3 -m netrecon scan 192.168.1.0/24 --json -o report.json
+sudo python3 -m scandy scan 192.168.1.0/24 --json -o report.json
 
 # Use a custom config (ports, timeouts)
-sudo python3 -m netrecon scan 192.168.1.0/24 -c myconfig.json
+sudo python3 -m scandy scan 192.168.1.0/24 -c myconfig.json
 ```
 
 ### Example config file
@@ -53,15 +53,15 @@ sudo python3 -m netrecon scan 192.168.1.0/24 -c myconfig.json
 
 | File | What it does | Needs scapy/root? |
 |---|---|---|
-| `netrecon/models.py` | Shared `Host` data type | No |
-| `netrecon/discover.py` | ARP host discovery | Yes |
-| `netrecon/portscan.py` | TCP connect-scan common ports | No |
-| `netrecon/isolation.py` | Detects likely client isolation | No |
-| `netrecon/bypass.py` | SSDP multicast leak test + gateway relay test | Partially (relay test needs scapy) |
-| `netrecon/report.py` | Combines everything into one report (text/JSON) | No (only `run_full_scan`) |
-| `netrecon/config.py` | Loads custom ports/timeouts from JSON | No |
-| `netrecon/colors.py` | Terminal color helpers | No |
-| `netrecon/cli.py` | Unified `python3 -m netrecon ...` entry point | No (imports are lazy per-command) |
+| `scandy/models.py` | Shared `Host` data type | No |
+| `scandy/discover.py` | ARP host discovery | Yes |
+| `scandy/portscan.py` | TCP connect-scan common ports | No |
+| `scandy/isolation.py` | Detects likely client isolation | No |
+| `scandy/bypass.py` | SSDP multicast leak test + gateway relay test | Partially (relay test needs scapy) |
+| `scandy/report.py` | Combines everything into one report (text/JSON) | No (only `run_full_scan`) |
+| `scandy/config.py` | Loads custom ports/timeouts from JSON | No |
+| `scandy/colors.py` | Terminal color helpers | No |
+| `scandy/cli.py` | Unified `python3 -m scandy ...` entry point | No (imports are lazy per-command) |
 
 ## Running tests
 
@@ -71,7 +71,7 @@ python3 -m unittest discover -v
 
 Most of the test suite runs without scapy installed (pure socket/logic
 tests). A couple of CLI dispatch tests are skipped automatically if
-scapy isn't importable, since they patch `netrecon.discover.scan`.
+scapy isn't importable, since they patch `scandy.discover.scan`.
 
 ## How client isolation detection works
 

@@ -23,8 +23,8 @@ import unittest
 from io import StringIO
 from unittest.mock import patch
 
-from netrecon.cli import main
-from netrecon.models import Host
+from scandy.cli import main
+from scandy.models import Host
 
 try:
     import scapy  # noqa: F401
@@ -36,8 +36,8 @@ except ImportError:
 class TestCliHelpSubprocess(unittest.TestCase):
     def _run(self, *args):
         return subprocess.run(
-            [sys.executable, "-m", "netrecon", *args],
-            cwd="/home/claude/netrecon",
+            [sys.executable, "-m", "scandy", *args],
+            cwd="/home/claude/scandy",
             capture_output=True,
             text=True,
             timeout=10,
@@ -68,8 +68,8 @@ class TestCliHelpSubprocess(unittest.TestCase):
 
 @unittest.skipUnless(
     HAS_SCAPY,
-    "netrecon.discover imports scapy at module level, so patching "
-    "netrecon.discover.scan requires scapy to be importable even "
+    "scandy.discover imports scapy at module level, so patching "
+    "scandy.discover.scan requires scapy to be importable even "
     "though these tests never touch real packets. Run these on a "
     "machine with scapy installed (pip install -r requirements.txt).",
 )
@@ -90,7 +90,7 @@ class TestCliDispatch(unittest.TestCase):
             json.dump(config_data, f)
             config_path = f.name
 
-        with patch("netrecon.discover.scan", return_value=[fake_host]):
+        with patch("scandy.discover.scan", return_value=[fake_host]):
             with patch("sys.stdout", new_callable=StringIO) as fake_out:
                 exit_code = main(["portscan", "192.168.1.0/24", "-c", config_path])
 
@@ -105,7 +105,7 @@ class TestCliDispatch(unittest.TestCase):
     def test_isolation_command_runs_and_prints_verdict(self):
         fake_host = Host(ip="127.0.0.1", mac="00:00:00:00:00:00")
 
-        with patch("netrecon.discover.scan", return_value=[fake_host]):
+        with patch("scandy.discover.scan", return_value=[fake_host]):
             with patch("sys.stdout", new_callable=StringIO) as fake_out:
                 exit_code = main(["isolation", "192.168.1.0/24", "-t", "0.2"])
 

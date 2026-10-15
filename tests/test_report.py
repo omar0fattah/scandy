@@ -13,11 +13,11 @@ import os
 import unittest
 from unittest.mock import patch
 
-from netrecon import colors
-from netrecon.models import Host
-from netrecon.portscan import ScanResult
-from netrecon.isolation import IsolationReport
-from netrecon.report import NetworkReport
+from scandy import colors
+from scandy.models import Host
+from scandy.portscan import ScanResult
+from scandy.isolation import IsolationReport
+from scandy.report import NetworkReport
 
 
 class TestReport(unittest.TestCase):

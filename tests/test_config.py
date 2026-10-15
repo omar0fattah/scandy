@@ -8,8 +8,8 @@ import os
 import tempfile
 import unittest
 
-from netrecon.config import Config, DEFAULT_PORT_TIMEOUT
-from netrecon.portscan import COMMON_PORTS
+from scandy.config import Config, DEFAULT_PORT_TIMEOUT
+from scandy.portscan import COMMON_PORTS
 
 
 class TestConfig(unittest.TestCase):

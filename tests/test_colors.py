@@ -8,7 +8,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from netrecon import colors
+from scandy import colors
 
 
 class TestColors(unittest.TestCase):

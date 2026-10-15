@@ -16,7 +16,7 @@ Requires root/administrator privileges because it crafts raw packets.
 
 from scapy.all import ARP, Ether, srp
 
-from netrecon.models import Host
+from scandy.models import Host
 
 
 def scan(subnet: str, timeout: int = 3) -> list[Host]:

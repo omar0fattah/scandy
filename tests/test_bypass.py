@@ -15,7 +15,7 @@ import threading
 import time
 import unittest
 
-from netrecon.bypass import _collect_replies
+from scandy.bypass import _collect_replies
 
 
 class TestCollectReplies(unittest.TestCase):

@@ -18,8 +18,8 @@ import socket
 import threading
 import unittest
 
-from netrecon.models import Host
-from netrecon.isolation import check_host
+from scandy.models import Host
+from scandy.isolation import check_host
 
 
 def start_listener(port: int):
@@ -44,7 +44,7 @@ class TestIsolation(unittest.TestCase):
     def test_reachable_host_is_not_flagged_isolated(self):
         # Temporarily point COMMON_PORTS-like behavior at a port we control
         # by monkeypatching the module's port list for this test only.
-        import netrecon.isolation as isolation_mod
+        import scandy.isolation as isolation_mod
 
         test_port = 54400
         listener = start_listener(test_port)
@@ -60,7 +60,7 @@ class TestIsolation(unittest.TestCase):
             listener.close()
 
     def test_unreachable_host_is_flagged_isolated(self):
-        import netrecon.isolation as isolation_mod
+        import scandy.isolation as isolation_mod
 
         # Ports nothing is listening on.
         original_ports = isolation_mod.COMMON_PORTS

@@ -12,10 +12,10 @@ does not attempt anything against networks you don't control.
 import json
 from dataclasses import dataclass, field
 
-from netrecon import colors
-from netrecon.models import Host
-from netrecon.portscan import scan_host, ScanResult
-from netrecon.isolation import check_host, IsolationReport, summarize as summarize_isolation
+from scandy import colors
+from scandy.models import Host
+from scandy.portscan import scan_host, ScanResult
+from scandy.isolation import check_host, IsolationReport, summarize as summarize_isolation
 
 
 @dataclass
@@ -91,7 +91,7 @@ class NetworkReport:
         dataclass or custom objects left inside, just str/int/bool/
         list/dict, so this can be fed into other tools later (a
         dashboard, a diff-against-last-scan script, whatever) without
-        them needing to know about netrecon's internal classes.
+        them needing to know about scandy's internal classes.
         """
         return {
             "subnet": self.subnet,
@@ -130,7 +130,7 @@ def run_full_scan(subnet: str, port_timeout: float = 0.5) -> NetworkReport:
     future script that formats results some other way) doesn't need
     scapy installed just to import this module.
     """
-    from netrecon.discover import scan as discover_hosts
+    from scandy.discover import scan as discover_hosts
 
     hosts = discover_hosts(subnet)
 

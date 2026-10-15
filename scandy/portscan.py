@@ -19,7 +19,7 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
-from netrecon.models import Host
+from scandy.models import Host
 
 # The ports most worth checking first - common services rather than
 # all 65535. Scanning everything is possible but slow and mostly
@@ -106,7 +106,7 @@ def scan_all(hosts: list[Host], ports: dict[int, str] = None,
 
 if __name__ == "__main__":
     import argparse
-    from netrecon.discover import scan as discover_scan
+    from scandy.discover import scan as discover_scan
 
     parser = argparse.ArgumentParser(description="Port scan hosts on a subnet")
     parser.add_argument("subnet", help="CIDR to scan, e.g. 192.168.1.0/24")

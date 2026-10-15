@@ -16,7 +16,7 @@ Example config.json:
 import json
 from dataclasses import dataclass, field
 
-from netrecon.portscan import COMMON_PORTS
+from scandy.portscan import COMMON_PORTS
 
 DEFAULT_PORT_TIMEOUT = 0.5
 DEFAULT_DISCOVER_TIMEOUT = 3

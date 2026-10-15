@@ -2,15 +2,15 @@
 Unified CLI entry point.
 
 Before this, running anything meant remembering which module path did
-what (python3 -m netrecon.discover, python3 -m netrecon.portscan,
+what (python3 -m scandy.discover, python3 -m scandy.portscan,
 ...). This collects them into one command with subcommands, the way
 real tools like `git` or `nmap --script` do it:
 
-    python3 -m netrecon discover 192.168.1.0/24
-    python3 -m netrecon portscan 192.168.1.0/24
-    python3 -m netrecon isolation 192.168.1.0/24
-    python3 -m netrecon scan 192.168.1.0/24          (full pipeline)
-    python3 -m netrecon scan 192.168.1.0/24 -o report.json --json
+    python3 -m scandy discover 192.168.1.0/24
+    python3 -m scandy portscan 192.168.1.0/24
+    python3 -m scandy isolation 192.168.1.0/24
+    python3 -m scandy scan 192.168.1.0/24          (full pipeline)
+    python3 -m scandy scan 192.168.1.0/24 -o report.json --json
 
 Only the "scan" (full pipeline) and "discover" subcommands touch
 scapy/raw sockets - argument parsing and dispatch here stay import-
@@ -20,12 +20,12 @@ light so --help works even on a machine without scapy installed.
 import argparse
 import sys
 
-from netrecon.config import Config
+from scandy.config import Config
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="netrecon",
+        prog="scandy",
         description="Home/lab network recon: discovery, port scanning, isolation checks.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     config = Config.load(args.config)
 
     if args.command == "discover":
-        from netrecon.discover import scan as discover_scan
+        from scandy.discover import scan as discover_scan
         timeout = args.timeout if args.timeout is not None else config.discover_timeout
         hosts = discover_scan(args.subnet, timeout=int(timeout))
         for host in hosts:
@@ -69,8 +69,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "portscan":
-        from netrecon.discover import scan as discover_scan
-        from netrecon.portscan import scan_host
+        from scandy.discover import scan as discover_scan
+        from scandy.portscan import scan_host
         timeout = args.timeout if args.timeout is not None else config.port_timeout
         hosts = discover_scan(args.subnet)
         for host in hosts:
@@ -78,8 +78,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "isolation":
-        from netrecon.discover import scan as discover_scan
-        from netrecon.isolation import check_host, summarize
+        from scandy.discover import scan as discover_scan
+        from scandy.isolation import check_host, summarize
         timeout = args.timeout if args.timeout is not None else config.port_timeout
         hosts = discover_scan(args.subnet)
         reports = [check_host(h, timeout=timeout) for h in hosts]
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "scan":
-        from netrecon.report import run_full_scan
+        from scandy.report import run_full_scan
         timeout = args.timeout if args.timeout is not None else config.port_timeout
         report = run_full_scan(args.subnet, port_timeout=timeout)
 

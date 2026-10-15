@@ -36,8 +36,8 @@ How we detect it, without needing two separate test devices:
 
 from dataclasses import dataclass
 
-from netrecon.models import Host
-from netrecon.portscan import COMMON_PORTS, _check_port
+from scandy.models import Host
+from scandy.portscan import COMMON_PORTS, _check_port
 
 
 @dataclass
@@ -98,7 +98,7 @@ def summarize(reports: list[IsolationReport]) -> str:
 
 if __name__ == "__main__":
     import argparse
-    from netrecon.discover import scan as discover_scan
+    from scandy.discover import scan as discover_scan
 
     parser = argparse.ArgumentParser(description="Check for client isolation on a subnet")
     parser.add_argument("subnet", help="CIDR to scan, e.g. 192.168.1.0/24")

@@ -9,8 +9,8 @@ import socket
 import threading
 import unittest
 
-from netrecon.models import Host
-from netrecon.portscan import scan_host
+from scandy.models import Host
+from scandy.portscan import scan_host
 
 
 def start_listener(port: int):
