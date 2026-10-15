@@ -91,3 +91,7 @@ sometimes leaks:
 Both are documented, known weaknesses in some consumer AP
 implementations - not secret exploits - and both only make sense to
 test on a network you control.
+
+
+
+**NOTE** : this tool is made with the help of AI please feel free to contact me if there's an error with the file , Thank you.
