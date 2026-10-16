@@ -69,9 +69,15 @@ sudo python3 -m scandy scan 192.168.1.0/24 -c myconfig.json
 python3 -m unittest discover -v
 ```
 
-Most of the test suite runs without scapy installed (pure socket/logic
-tests). A couple of CLI dispatch tests are skipped automatically if
-scapy isn't importable, since they patch `scandy.discover.scan`.
+The full suite (35 tests) passes whether or not scapy is actually
+installed. Most tests are pure socket/logic tests that never touch
+scapy at all; the ones that do (`discover.py`'s reply parsing,
+`bypass.py`'s gateway relay check) run against a minimal scapy stub
+(`tests/_fake_scapy.py`) so the surrounding logic is verified even in
+an environment without real scapy. That stub only proves scandy's own
+code does the right thing with whatever scapy/a real network hands
+it — it doesn't verify real ARP/packet behavior, which only a live
+run on your own network can confirm.
 
 ## How client isolation detection works
 
