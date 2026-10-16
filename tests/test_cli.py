@@ -33,6 +33,41 @@ except ImportError:
     HAS_SCAPY = False
 
 
+class TestCliConfigErrorHandling(unittest.TestCase):
+    """
+    Config.load() raises plain Python exceptions (json.JSONDecodeError,
+    ValueError, FileNotFoundError) for bad input - found by actually
+    trying malformed config files against it. Before main() wrapped
+    the Config.load() call, any of these crashed the CLI with a raw
+    traceback instead of a usable error message. These tests pin that
+    fix in place.
+    """
+
+    def test_missing_config_file_prints_clean_error(self):
+        with patch("sys.stderr", new_callable=StringIO) as fake_err:
+            exit_code = main(["scan", "192.168.1.0/24", "-c", "/tmp/does_not_exist_12345.json"])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("not found", fake_err.getvalue())
+
+    def test_malformed_json_prints_clean_error(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write("{ not valid json")
+            path = f.name
+        with patch("sys.stderr", new_callable=StringIO) as fake_err:
+            exit_code = main(["scan", "192.168.1.0/24", "-c", path])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("not valid JSON", fake_err.getvalue())
+
+    def test_invalid_port_key_prints_clean_error(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump({"ports": {"ssh": "SSH"}}, f)  # should be {"22": "SSH"}
+            path = f.name
+        with patch("sys.stderr", new_callable=StringIO) as fake_err:
+            exit_code = main(["scan", "192.168.1.0/24", "-c", path])
+        self.assertEqual(exit_code, 1)
+        self.assertIn("invalid value", fake_err.getvalue())
+
+
 class TestCliHelpSubprocess(unittest.TestCase):
     def _run(self, *args):
         return subprocess.run(

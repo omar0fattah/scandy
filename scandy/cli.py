@@ -18,6 +18,7 @@ light so --help works even on a machine without scapy installed.
 """
 
 import argparse
+import json
 import sys
 
 from scandy.config import Config
@@ -57,7 +58,21 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    config = Config.load(args.config)
+
+    try:
+        config = Config.load(args.config)
+    except FileNotFoundError:
+        print(f"Error: config file not found: {args.config}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as e:
+        print(f"Error: {args.config} is not valid JSON ({e})", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        # Covers a non-numeric port key/timeout, e.g. {"ports": {"ssh": "SSH"}}
+        # instead of {"ports": {"22": "SSH"}} - a typo'd config shouldn't
+        # crash with a raw traceback, it should say what's wrong.
+        print(f"Error: invalid value in {args.config} ({e})", file=sys.stderr)
+        return 1
 
     if args.command == "discover":
         from scandy.discover import scan as discover_scan
