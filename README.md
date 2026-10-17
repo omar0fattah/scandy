@@ -15,6 +15,26 @@ Needs Python 3.10+ and root/admin privileges (raw packet access for ARP).
 pip install -r requirements.txt
 ```
 
+**On Kali/Debian (and other recent distros)**, plain `pip install` may
+refuse with `error: externally-managed-environment` (PEP 668). Two
+ways around it:
+
+```bash
+# Either: install just for this project in a venv (recommended)
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+# then run everything with: sudo venv/bin/python3 -m scandy ...
+# (plain `sudo python3 -m scandy ...` won't see the venv - sudo
+# starts a fresh environment that doesn't inherit `source activate`)
+
+# Or: install system-wide, which is also what root's python needs anyway
+sudo pip install --break-system-packages -r requirements.txt
+```
+
+The second option is simpler for a one-off test since this tool needs
+`sudo` either way, but a venv is the better habit generally.
+
 On Windows, scapy also needs [Npcap](https://npcap.com/) installed first.
 
 ## Usage
@@ -37,7 +57,16 @@ sudo python3 -m scandy scan 192.168.1.0/24 --json -o report.json
 
 # Use a custom config (ports, timeouts)
 sudo python3 -m scandy scan 192.168.1.0/24 -c myconfig.json
+
+# If discovery finds 0 hosts on a network you know has live devices,
+# scapy may have picked the wrong network interface (common on VMs
+# with more than one virtual adapter). Check `ip addr` for the real
+# interface name and specify it explicitly:
+sudo python3 -m scandy scan 192.168.1.0/24 -i eth0
 ```
+
+If you forget `sudo`, you'll get a clear "permission denied" message
+instead of a crash - raw packet access always needs it.
 
 ### Example config file
 
@@ -69,7 +98,7 @@ sudo python3 -m scandy scan 192.168.1.0/24 -c myconfig.json
 python3 -m unittest discover -v
 ```
 
-The full suite (35 tests) passes whether or not scapy is actually
+The full suite (38 tests) passes whether or not scapy is actually
 installed. Most tests are pure socket/logic tests that never touch
 scapy at all; the ones that do (`discover.py`'s reply parsing,
 `bypass.py`'s gateway relay check) run against a minimal scapy stub

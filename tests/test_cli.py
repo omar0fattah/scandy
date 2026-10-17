@@ -137,6 +137,62 @@ class TestCliDispatch(unittest.TestCase):
         self.assertIn("127.0.0.1", output)
         self.assertIn("no open ports found", output)
 
+    def test_permission_error_prints_clean_message_not_traceback(self):
+        """
+        PermissionError is exactly what scapy raises when raw socket
+        access needs root and the process isn't running as root - the
+        single most common first-run mistake (forgetting sudo). Before
+        _run_scapy_step wrapped this, it crashed with a raw Python
+        traceback; this pins the friendly replacement in place.
+        """
+        with patch("scandy.discover.scan", side_effect=PermissionError("Operation not permitted")):
+            with patch("sys.stderr", new_callable=StringIO) as fake_err:
+                exit_code = main(["discover", "192.168.1.0/24"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("sudo", fake_err.getvalue())
+
+    def test_os_error_prints_clean_message_mentioning_iface(self):
+        """Covers the other common real-world failure: a bad/typo'd
+        --iface value, which scapy surfaces as a plain OSError."""
+        with patch("scandy.discover.scan", side_effect=OSError("No such device")):
+            with patch("sys.stderr", new_callable=StringIO) as fake_err:
+                exit_code = main(["discover", "192.168.1.0/24", "-i", "not-a-real-iface"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("No such device", fake_err.getvalue())
+        self.assertIn("--iface", fake_err.getvalue())
+
+    def test_iface_flag_reaches_discover_scan_for_every_command(self):
+        """
+        Regression test: --iface exists to fix a real problem (scapy
+        picking the wrong NIC on a multi-interface machine and
+        discovery silently finding 0 hosts), but that fix is useless
+        if the CLI doesn't actually pass it through. Checks the real
+        call arguments discover.scan() received, not just that the
+        command ran without crashing - a wiring bug here would still
+        print normal-looking output while silently dropping --iface
+        on the floor.
+        """
+        fake_host = Host(ip="127.0.0.1", mac="00:00:00:00:00:00")
+
+        for command in ("discover", "portscan", "isolation"):
+            with self.subTest(command=command):
+                with patch("scandy.discover.scan", return_value=[fake_host]) as mock_scan:
+                    with patch("sys.stdout", new_callable=StringIO):
+                        main([command, "192.168.1.0/24", "-i", "wlan0", "-t", "0.2"])
+
+                _, kwargs = mock_scan.call_args
+                self.assertEqual(kwargs.get("iface"), "wlan0")
+
+        # "scan" goes through run_full_scan() instead of calling
+        # discover.scan() directly, so check that path too.
+        with patch("scandy.discover.scan", return_value=[fake_host]) as mock_scan:
+            with patch("sys.stdout", new_callable=StringIO):
+                main(["scan", "192.168.1.0/24", "-i", "wlan0", "-t", "0.2"])
+        _, kwargs = mock_scan.call_args
+        self.assertEqual(kwargs.get("iface"), "wlan0")
+
     def test_isolation_command_runs_and_prints_verdict(self):
         fake_host = Host(ip="127.0.0.1", mac="00:00:00:00:00:00")
 

@@ -119,11 +119,18 @@ class NetworkReport:
         return json.dumps(self.to_dict(), indent=indent)
 
 
-def run_full_scan(subnet: str, port_timeout: float = 0.5) -> NetworkReport:
+def run_full_scan(subnet: str, port_timeout: float = 0.5, discover_timeout: int = 3,
+                   iface: str | None = None) -> NetworkReport:
     """
     Run the full pipeline: discover hosts, scan their ports, and check
     for isolation. Returns a NetworkReport the caller can render or
     inspect programmatically.
+
+    discover_timeout/iface are passed straight through to discover.scan()
+    - see that function's docstring for why iface matters (scapy can
+    silently pick the wrong network interface on a multi-NIC machine,
+    e.g. a VM with more than one adapter, and the scan just quietly
+    returns zero hosts instead of erroring).
 
     discover.py is imported here, not at module level, so that
     anything only using NetworkReport/render() (like tests, or a
@@ -132,7 +139,7 @@ def run_full_scan(subnet: str, port_timeout: float = 0.5) -> NetworkReport:
     """
     from scandy.discover import scan as discover_hosts
 
-    hosts = discover_hosts(subnet)
+    hosts = discover_hosts(subnet, timeout=discover_timeout, iface=iface)
 
     port_results = [scan_host(h, timeout=port_timeout) for h in hosts]
     isolation_results = [check_host(h, timeout=port_timeout) for h in hosts]

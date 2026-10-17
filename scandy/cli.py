@@ -34,8 +34,14 @@ def build_parser() -> argparse.ArgumentParser:
     def add_common_args(p):
         p.add_argument("subnet", help="CIDR to scan, e.g. 192.168.1.0/24")
         p.add_argument("-t", "--timeout", type=float, default=None,
-                        help="override timeout in seconds")
+                        help="override timeout in seconds (applies to both "
+                             "discovery and port/isolation checks)")
         p.add_argument("-c", "--config", help="path to a JSON config file")
+        p.add_argument("-i", "--iface", default=None,
+                        help="network interface for ARP discovery (e.g. eth0, "
+                             "wlan0) - see `ip addr`; needed if discovery finds "
+                             "0 hosts on a machine with more than one network "
+                             "interface, since the default can pick the wrong one")
 
     p_discover = sub.add_parser("discover", help="find live hosts on a subnet (ARP)")
     add_common_args(p_discover)
@@ -53,6 +59,39 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("--no-color", action="store_true", help="disable colored terminal output")
 
     return parser
+
+
+def _run_scapy_step(fn):
+    """
+    Run a scapy-touching call (ARP discovery, the gateway relay probe)
+    and turn the most common real-world failures into a clear message
+    instead of a raw traceback - this is the first thing most people
+    hit on their first run, not an edge case:
+
+    - PermissionError / OSError "Operation not permitted": raw socket
+      access needs root (sudo on Linux/macOS, Administrator + Npcap on
+      Windows). This is the #1 thing people forget.
+    - OSError mentioning the interface: usually a typo'd --iface value
+      - see `ip addr` for real interface names.
+
+    Returns the function's result, or None if it failed (the caller
+    checks for None and returns a non-zero exit code).
+    """
+    try:
+        return fn()
+    except PermissionError:
+        print(
+            "Error: permission denied. Raw packet access needs elevated "
+            "privileges - run this with sudo (Linux/macOS) or as "
+            "Administrator with Npcap installed (Windows).",
+            file=sys.stderr,
+        )
+        return None
+    except OSError as e:
+        print(f"Error: network operation failed ({e}). If you passed "
+              f"--iface, double check the interface name with `ip addr`.",
+              file=sys.stderr)
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -74,10 +113,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error: invalid value in {args.config} ({e})", file=sys.stderr)
         return 1
 
+    # A single --timeout, when given, overrides both the discovery
+    # timeout and the port/isolation-check timeout - simpler than two
+    # separate flags, and config.json can still set them independently
+    # when --timeout isn't passed.
+    discover_timeout = int(args.timeout) if args.timeout is not None else config.discover_timeout
+    check_timeout = args.timeout if args.timeout is not None else config.port_timeout
+
     if args.command == "discover":
         from scandy.discover import scan as discover_scan
-        timeout = args.timeout if args.timeout is not None else config.discover_timeout
-        hosts = discover_scan(args.subnet, timeout=int(timeout))
+        hosts = _run_scapy_step(
+            lambda: discover_scan(args.subnet, timeout=discover_timeout, iface=args.iface)
+        )
+        if hosts is None:
+            return 1
         for host in hosts:
             print(host)
         print(f"\n{len(hosts)} host(s) found.")
@@ -86,18 +135,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "portscan":
         from scandy.discover import scan as discover_scan
         from scandy.portscan import scan_host
-        timeout = args.timeout if args.timeout is not None else config.port_timeout
-        hosts = discover_scan(args.subnet)
+        hosts = _run_scapy_step(
+            lambda: discover_scan(args.subnet, timeout=discover_timeout, iface=args.iface)
+        )
+        if hosts is None:
+            return 1
         for host in hosts:
-            print(scan_host(host, ports=config.ports, timeout=timeout))
+            print(scan_host(host, ports=config.ports, timeout=check_timeout))
         return 0
 
     if args.command == "isolation":
         from scandy.discover import scan as discover_scan
         from scandy.isolation import check_host, summarize
-        timeout = args.timeout if args.timeout is not None else config.port_timeout
-        hosts = discover_scan(args.subnet)
-        reports = [check_host(h, timeout=timeout) for h in hosts]
+        hosts = _run_scapy_step(
+            lambda: discover_scan(args.subnet, timeout=discover_timeout, iface=args.iface)
+        )
+        if hosts is None:
+            return 1
+        reports = [check_host(h, timeout=check_timeout) for h in hosts]
         for r in reports:
             print(r)
         print(f"\n{summarize(reports)}")
@@ -105,8 +160,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "scan":
         from scandy.report import run_full_scan
-        timeout = args.timeout if args.timeout is not None else config.port_timeout
-        report = run_full_scan(args.subnet, port_timeout=timeout)
+        report = _run_scapy_step(
+            lambda: run_full_scan(args.subnet, port_timeout=check_timeout,
+                                   discover_timeout=discover_timeout, iface=args.iface)
+        )
+        if report is None:
+            return 1
 
         if args.json:
             text = report.to_json()
