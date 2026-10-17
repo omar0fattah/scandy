@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from scandy import colors
 from scandy.models import Host
-from scandy.portscan import scan_host, ScanResult
+from scandy.portscan import scan_host, ScanResult, _short as _short_for_report
 from scandy.isolation import check_host, IsolationReport, summarize as summarize_isolation
 
 
@@ -52,6 +52,17 @@ class NetworkReport:
         for result in self.port_results:
             lines.append(f"  {self._render_port_result(result, color)}")
         lines.append("")
+
+        any_banners = any(r.banners for r in self.port_results)
+        if any_banners:
+            lines.append("Service banners:")
+            for result in self.port_results:
+                for port, banner in sorted(result.banners.items()):
+                    text = _short_for_report(banner)
+                    if color:
+                        text = colors.cyan(text)
+                    lines.append(f"  {result.host.ip:<15}  {port:<5} {text}")
+            lines.append("")
 
         lines.append("Isolation check:")
         for report in self.isolation_results:
@@ -100,6 +111,7 @@ class NetworkReport:
                 {
                     "ip": r.host.ip,
                     "open_ports": {str(port): name for port, name in r.open_ports.items()},
+                    "banners": {str(port): banner for port, banner in r.banners.items()},
                 }
                 for r in self.port_results
             ],
@@ -120,7 +132,7 @@ class NetworkReport:
 
 
 def run_full_scan(subnet: str, port_timeout: float = 0.5, discover_timeout: int = 3,
-                   iface: str | None = None) -> NetworkReport:
+                   iface: str | None = None, grab_banners: bool = True) -> NetworkReport:
     """
     Run the full pipeline: discover hosts, scan their ports, and check
     for isolation. Returns a NetworkReport the caller can render or
@@ -132,6 +144,11 @@ def run_full_scan(subnet: str, port_timeout: float = 0.5, discover_timeout: int 
     e.g. a VM with more than one adapter, and the scan just quietly
     returns zero hosts instead of erroring).
 
+    grab_banners: try to identify service/version on each open port
+    found (see banner.py) - on by default since that's the whole point
+    of a "give me the full picture" scan, but it adds extra round
+    trips per open port, so it can be turned off for a faster pass.
+
     discover.py is imported here, not at module level, so that
     anything only using NetworkReport/render() (like tests, or a
     future script that formats results some other way) doesn't need
@@ -141,7 +158,7 @@ def run_full_scan(subnet: str, port_timeout: float = 0.5, discover_timeout: int 
 
     hosts = discover_hosts(subnet, timeout=discover_timeout, iface=iface)
 
-    port_results = [scan_host(h, timeout=port_timeout) for h in hosts]
+    port_results = [scan_host(h, timeout=port_timeout, grab_banners=grab_banners) for h in hosts]
     isolation_results = [check_host(h, timeout=port_timeout) for h in hosts]
 
     return NetworkReport(

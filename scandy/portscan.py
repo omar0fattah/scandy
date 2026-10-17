@@ -19,6 +19,7 @@ import socket
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
+from scandy.banner import grab_banners as _grab_banners
 from scandy.models import Host
 
 # The ports most worth checking first - common services rather than
@@ -45,16 +46,32 @@ COMMON_PORTS = {
 }
 
 
+def _short(text: str, maxlen: int = 60) -> str:
+    """First line of a banner, trimmed - full HTTP response headers or
+    multi-line greetings are useful in the JSON output but unreadable
+    crammed into one text-report line."""
+    first_line = text.splitlines()[0] if text else text
+    if len(first_line) > maxlen:
+        return first_line[: maxlen - 1] + "…"
+    return first_line
+
+
 @dataclass
 class ScanResult:
     host: Host
     open_ports: dict[int, str] = field(default_factory=dict)  # port -> service name
+    banners: dict[int, str] = field(default_factory=dict)  # port -> raw banner text
 
     def __str__(self):
         if not self.open_ports:
             return f"{self.host.ip:<15}  no open ports found"
-        ports = ", ".join(f"{p}/{name}" for p, name in sorted(self.open_ports.items()))
-        return f"{self.host.ip:<15}  {ports}"
+        parts = []
+        for p, name in sorted(self.open_ports.items()):
+            label = f"{p}/{name}"
+            if p in self.banners:
+                label += f" [{_short(self.banners[p])}]"
+            parts.append(label)
+        return f"{self.host.ip:<15}  " + ", ".join(parts)
 
 
 def _check_port(ip: str, port: int, timeout: float) -> bool:
@@ -69,7 +86,7 @@ def _check_port(ip: str, port: int, timeout: float) -> bool:
 
 
 def scan_host(host: Host, ports: dict[int, str] = None, timeout: float = 0.5,
-              max_workers: int = 50) -> ScanResult:
+              max_workers: int = 50, grab_banners: bool = True) -> ScanResult:
     """
     Scan one host across a set of ports, concurrently.
 
@@ -78,6 +95,15 @@ def scan_host(host: Host, ports: dict[int, str] = None, timeout: float = 0.5,
     max_workers: how many ports to check in parallel - this is what
                  makes scanning fast; sequential would take forever
                  even for ~17 ports times timeout each.
+    grab_banners: after finding open ports, also try to grab a service
+                  banner/version string from each one (see banner.py).
+                  Only runs against ports that are actually open, so a
+                  host with nothing open costs nothing extra. Banner
+                  grabs happen one port at a time (unlike the port
+                  scan itself), so a host with many open ports adds
+                  up to roughly (open_ports * timeout) worst case -
+                  fine for a handful of common ports, worth knowing if
+                  you ever scan far more ports than COMMON_PORTS.
     """
     ports = ports or COMMON_PORTS
     result = ScanResult(host=host)
@@ -95,13 +121,16 @@ def scan_host(host: Host, ports: dict[int, str] = None, timeout: float = 0.5,
             if future.result():
                 result.open_ports[port] = ports[port]
 
+    if grab_banners and result.open_ports:
+        result.banners = _grab_banners(host.ip, result.open_ports, timeout=timeout)
+
     return result
 
 
 def scan_all(hosts: list[Host], ports: dict[int, str] = None,
-             timeout: float = 0.5) -> list[ScanResult]:
+             timeout: float = 0.5, grab_banners: bool = True) -> list[ScanResult]:
     """Scan every host in the list. One host at a time, ports in parallel."""
-    return [scan_host(h, ports=ports, timeout=timeout) for h in hosts]
+    return [scan_host(h, ports=ports, timeout=timeout, grab_banners=grab_banners) for h in hosts]
 
 
 if __name__ == "__main__":

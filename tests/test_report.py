@@ -85,6 +85,57 @@ class TestReport(unittest.TestCase):
         self.assertEqual(parsed["isolation_results"][0]["likely_isolated"], False)
         self.assertIn("isolation_verdict", parsed)
 
+    def test_render_includes_banner_section_when_banners_present(self):
+        host = Host(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
+        report = NetworkReport(
+            subnet="192.168.1.0/24",
+            hosts=[host],
+            port_results=[ScanResult(
+                host=host,
+                open_ports={22: "SSH"},
+                banners={22: "SSH-2.0-OpenSSH_7.4"},
+            )],
+            isolation_results=[
+                IsolationReport(host=host, arp_reachable=True, tcp_reachable=True, likely_isolated=False)
+            ],
+        )
+        text = report.render()
+
+        self.assertIn("Service banners:", text)
+        self.assertIn("SSH-2.0-OpenSSH_7.4", text)
+
+    def test_render_omits_banner_section_when_no_banners(self):
+        host = Host(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
+        report = NetworkReport(
+            subnet="192.168.1.0/24",
+            hosts=[host],
+            port_results=[ScanResult(host=host, open_ports={22: "SSH"})],
+            isolation_results=[
+                IsolationReport(host=host, arp_reachable=True, tcp_reachable=True, likely_isolated=False)
+            ],
+        )
+        text = report.render()
+
+        self.assertNotIn("Service banners:", text)
+
+    def test_to_dict_includes_banners(self):
+        host = Host(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
+        report = NetworkReport(
+            subnet="192.168.1.0/24",
+            hosts=[host],
+            port_results=[ScanResult(
+                host=host,
+                open_ports={22: "SSH"},
+                banners={22: "SSH-2.0-OpenSSH_7.4"},
+            )],
+            isolation_results=[
+                IsolationReport(host=host, arp_reachable=True, tcp_reachable=True, likely_isolated=False)
+            ],
+        )
+        parsed = json.loads(report.to_json())
+
+        self.assertEqual(parsed["port_results"][0]["banners"], {"22": "SSH-2.0-OpenSSH_7.4"})
+
     def test_render_default_has_no_ansi_codes(self):
         host = Host(ip="192.168.1.1", mac="aa:bb:cc:dd:ee:ff")
         report = NetworkReport(

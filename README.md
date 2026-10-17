@@ -63,6 +63,9 @@ sudo python3 -m scandy scan 192.168.1.0/24 -c myconfig.json
 # with more than one virtual adapter). Check `ip addr` for the real
 # interface name and specify it explicitly:
 sudo python3 -m scandy scan 192.168.1.0/24 -i eth0
+
+# Skip service/version banner grabbing for a faster, quieter scan
+sudo python3 -m scandy scan 192.168.1.0/24 --no-banners
 ```
 
 If you forget `sudo`, you'll get a clear "permission denied" message
@@ -87,6 +90,7 @@ instead of a crash - raw packet access always needs it.
 | `scandy/portscan.py` | TCP connect-scan common ports | No |
 | `scandy/isolation.py` | Detects likely client isolation | No |
 | `scandy/bypass.py` | SSDP multicast leak test + gateway relay test | Partially (relay test needs scapy) |
+| `scandy/banner.py` | Grabs a service banner/version string from open ports | No |
 | `scandy/report.py` | Combines everything into one report (text/JSON) | No (only `run_full_scan`) |
 | `scandy/config.py` | Loads custom ports/timeouts from JSON | No |
 | `scandy/colors.py` | Terminal color helpers | No |
@@ -98,7 +102,7 @@ instead of a crash - raw packet access always needs it.
 python3 -m unittest discover -v
 ```
 
-The full suite (38 tests) passes whether or not scapy is actually
+The full suite (56 tests) passes whether or not scapy is actually
 installed. Most tests are pure socket/logic tests that never touch
 scapy at all; the ones that do (`discover.py`'s reply parsing,
 `bypass.py`'s gateway relay check) run against a minimal scapy stub
@@ -107,6 +111,29 @@ an environment without real scapy. That stub only proves scandy's own
 code does the right thing with whatever scapy/a real network hands
 it — it doesn't verify real ARP/packet behavior, which only a live
 run on your own network can confirm.
+
+## Service banner grabbing
+
+Once `portscan.py` finds an open port, `banner.py` tries to identify
+what's actually running there — the difference between "22/SSH is
+open" and "22/SSH is open, running OpenSSH 9.6". This runs
+automatically as part of `portscan` and `scan` (use `--no-banners` to
+skip it for a faster, quieter run). Two strategies, picked by port:
+
+- **Passive read**: SSH, FTP, SMTP, and similar services send a
+  greeting line the moment you connect, before you say anything — so
+  this just connects and reads.
+- **Active HTTP(S) probe**: HTTP/HTTPS servers wait for a request
+  first, so this sends a minimal `HEAD /` request and reads back the
+  response (particularly the `Server` header). Certificate
+  verification is intentionally disabled for HTTPS, since the goal is
+  identifying what's there, not establishing a trusted connection.
+
+This stays strictly informational — a banner/version string, nothing
+more. No automated vulnerability lookup or exploit code; that's a
+deliberate line, not a missing feature (a future module may add known
+*CVE* lookups against the grabbed version string, but that's a
+separate, later piece of work).
 
 ## How client isolation detection works
 

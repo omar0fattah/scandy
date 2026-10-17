@@ -137,6 +137,46 @@ class TestCliDispatch(unittest.TestCase):
         self.assertIn("127.0.0.1", output)
         self.assertIn("no open ports found", output)
 
+    def test_no_banners_flag_reaches_scan_host(self):
+        """
+        --no-banners exists so a scan can skip the extra round trips
+        banner-grabbing adds - but that's only true if the flag
+        actually reaches scan_host()/run_full_scan(). Checks the real
+        call kwargs scan_host received, the same style as the --iface
+        wiring test above, since a silent wiring bug here would still
+        produce normal-looking (just slower) output.
+        """
+        fake_host = Host(ip="127.0.0.1", mac="00:00:00:00:00:00")
+
+        with patch("scandy.discover.scan", return_value=[fake_host]):
+            with patch("scandy.portscan.scan_host") as mock_scan_host:
+                mock_scan_host.return_value.__str__ = lambda self: "fake result"
+                with patch("sys.stdout", new_callable=StringIO):
+                    main(["portscan", "192.168.1.0/24", "--no-banners"])
+        _, kwargs = mock_scan_host.call_args
+        self.assertEqual(kwargs.get("grab_banners"), False)
+
+        from scandy.portscan import ScanResult
+        with patch("scandy.discover.scan", return_value=[fake_host]):
+            with patch("scandy.report.scan_host", return_value=ScanResult(host=fake_host)) as mock_scan_host2:
+                with patch("sys.stdout", new_callable=StringIO):
+                    main(["scan", "192.168.1.0/24", "--no-banners"])
+        _, kwargs2 = mock_scan_host2.call_args
+        self.assertEqual(kwargs2.get("grab_banners"), False)
+
+    def test_banners_grabbed_by_default(self):
+        """The flip side: without --no-banners, grab_banners should
+        default to True all the way through, not silently default off."""
+        fake_host = Host(ip="127.0.0.1", mac="00:00:00:00:00:00")
+
+        with patch("scandy.discover.scan", return_value=[fake_host]):
+            with patch("scandy.portscan.scan_host") as mock_scan_host:
+                mock_scan_host.return_value.__str__ = lambda self: "fake result"
+                with patch("sys.stdout", new_callable=StringIO):
+                    main(["portscan", "192.168.1.0/24"])
+        _, kwargs = mock_scan_host.call_args
+        self.assertEqual(kwargs.get("grab_banners"), True)
+
     def test_permission_error_prints_clean_message_not_traceback(self):
         """
         PermissionError is exactly what scapy raises when raw socket

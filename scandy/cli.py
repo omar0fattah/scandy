@@ -48,6 +48,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_portscan = sub.add_parser("portscan", help="discover hosts, then port-scan each")
     add_common_args(p_portscan)
+    p_portscan.add_argument("--no-banners", action="store_true",
+                             help="skip grabbing service/version banners from open ports (faster)")
 
     p_isolation = sub.add_parser("isolation", help="discover hosts, then check for client isolation")
     add_common_args(p_isolation)
@@ -57,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_scan.add_argument("-o", "--output", help="save report to this file")
     p_scan.add_argument("--json", action="store_true", help="output/save as JSON instead of text")
     p_scan.add_argument("--no-color", action="store_true", help="disable colored terminal output")
+    p_scan.add_argument("--no-banners", action="store_true",
+                         help="skip grabbing service/version banners from open ports (faster)")
 
     return parser
 
@@ -141,7 +145,8 @@ def main(argv: list[str] | None = None) -> int:
         if hosts is None:
             return 1
         for host in hosts:
-            print(scan_host(host, ports=config.ports, timeout=check_timeout))
+            print(scan_host(host, ports=config.ports, timeout=check_timeout,
+                             grab_banners=not args.no_banners))
         return 0
 
     if args.command == "isolation":
@@ -162,7 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         from scandy.report import run_full_scan
         report = _run_scapy_step(
             lambda: run_full_scan(args.subnet, port_timeout=check_timeout,
-                                   discover_timeout=discover_timeout, iface=args.iface)
+                                   discover_timeout=discover_timeout, iface=args.iface,
+                                   grab_banners=not args.no_banners)
         )
         if report is None:
             return 1
